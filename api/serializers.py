@@ -49,8 +49,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
         recurrences = validated_data.get('number_of_recurrences', 0)
         payment_date = datetime.strptime(self.context['payment_date'], "%Y-%m-%d %H:%M:%S")
         payment_date_aware = timezone.make_aware(payment_date)
-        print(f"Payment date naive: {payment_date}")
-        print(f"Payment date aware: {payment_date_aware}")
         expense = Expense.objects.create(**validated_data)
         Payment.objects.create(expense=expense, date=payment_date_aware)
         for i in range(recurrences):

@@ -8,7 +8,7 @@ router.register(r'account', views.AccountViewSet, basename='account')
 router.register(r'expenses', views.ExpenseViewSet, basename='expenses')
 router.register(r'payments', views.PaymentViewSet, basename='payments')
 
-
+app_name = "api"
 urlpatterns = [
     path('', views.create_user),
     path('', include(router.urls)),

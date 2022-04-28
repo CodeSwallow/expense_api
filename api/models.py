@@ -85,7 +85,7 @@ class Expense(models.Model):
         choices=Category.choices,
         default=Category.UNCATEGORIZED,
     )
-    number_of_recurrences = models.SmallIntegerField(default=0)
+    number_of_recurrences = models.PositiveSmallIntegerField(default=0)
     recurrence = models.CharField(
         max_length=2,
         choices=Recurrence.choices,
@@ -97,12 +97,6 @@ class Expense(models.Model):
     @property
     def recurring(self):
         return bool(self.number_of_recurrences)
-
-    @property
-    def recurrence_until_cancelled(self):
-        if self.number_of_recurrences < 0:
-            return True
-        return False
 
     @property
     def payment_date(self):

@@ -26,7 +26,7 @@ def create_user(request):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response({'response': 'Use POST method to create user. (username, email, password)'})
 
 
@@ -35,7 +35,6 @@ class AccountViewSet(viewsets.ViewSet):
     queryset = Account.objects.all()
 
     def list(self, request):
-        print('entered')
         account = get_object_or_404(self.queryset, owner=self.request.user.id)
         serializer = AccountSerializer(account)
         return Response(serializer.data)
@@ -55,7 +54,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f'create: {today}')
         payment_date = request.data.pop('payment_date', today)
         serializer = self.get_serializer(data=request.data, context={'payment_date': payment_date})
         serializer.is_valid(raise_exception=True)
@@ -97,28 +95,26 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
-    def expense_by_month(self, request):
+    def expenses_by_month(self, request):
         today = timezone.now()
         month = request.query_params.get('month', today.month)
         year = request.query_params.get('year', today.year)
-        filters = {"payment_date__month": month, "payment_date__year": year}
-        expenses = Expense.objects.filter(**filters).order_by("-payment_date")
-        page = self.paginate_queryset(expenses)
-
-        if page:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
+        try:
+            month = int(month)
+            year = int(year)
+            date = datetime(year, month, 1)
+        except (TypeError, ValueError) as e:
+            return Response({"error": f"Query must be valid integer: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        filters = {"payments__date__month": month, "payments__date__year": year}
+        expenses = Expense.objects.filter(**filters)
+        total = sum(expense.amount for expense in expenses)
         serializer = self.get_serializer(expenses, many=True)
-        return Response(serializer.data)
+        response = {"month": date.strftime("%B"), "expenses": serializer.data, "total": total}
+        return Response(response)
 
     @action(detail=False, methods=['get'])
-    def test_adding_months(self, request):
-        date = datetime(2022, 3, 31)
-        print(date)
-        print(datetime.today())
-        delta = relativedelta(months=1)
-        return Response({'months': date+delta})
+    def expenses_so_far(self, request):
+        return Response({"status": "End point not yet implemented"}, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -139,5 +135,4 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = self.get_serializer(payments, many=True)
         return Response(serializer.data)
-
 
