@@ -3,9 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
 from rest_framework import viewsets, status
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
-from dateutil.relativedelta import relativedelta
 
 from api.permissions import AccountPermission, PaymentPermission
 from api.paginations import SmallResultsSetPagination, StandardResultsSetPagination
@@ -16,6 +15,7 @@ from api.serializers import (
     PaymentSerializer
 )
 from api.models import Account, Expense, Payment
+
 
 # Create your views here.
 
@@ -114,19 +114,39 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def expenses_so_far(self, request):
-        return Response({"status": "End point not yet implemented"}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        today = timezone.now()
+        filters = {"payments__date__month": today.month, "payments__date__year": today.year,
+                   "payments__date__lte": today.date()}
+        expenses = Expense.objects.filter(**filters)
+        total = sum(expense.amount for expense in expenses)
+        serializer = self.get_serializer(expenses, many=True)
+        response = {"month": today.strftime("%B"), "expenses": serializer.data, "total": total}
+        return Response(response)
 
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, PaymentPermission]
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    pagination_class = SmallResultsSetPagination
+    pagination_class = StandardResultsSetPagination
 
     @action(detail=False, methods=['get'])
     def upcoming_payments(self, request):
         today = timezone.now()
-        payments = Payment.objects.filter(date__gte=today)
+        filters = {'date__gt': today.date()}
+        same_month = request.query_params.get('same_month', None)
+        months = request.query_params.get('months', None)
+        if same_month is not None:
+            filters['date__month'] = today.month
+        if months is not None:
+            try:
+                months = int(months)
+                limit = today.replace(month=today.month+months)
+                filters['date__lte'] = limit
+            except ValueError as e:
+                return Response({"error": f"Query must be valid integer: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payments = Payment.objects.filter(**filters)
         page = self.paginate_queryset(payments)
 
         if page:
@@ -135,4 +155,3 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = self.get_serializer(payments, many=True)
         return Response(serializer.data)
-
