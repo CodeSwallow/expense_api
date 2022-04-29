@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 
 from api.permissions import AccountPermission, PaymentPermission
-from api.paginations import SmallResultsSetPagination, StandardResultsSetPagination
+from api.paginations import PaymentResultsSetPagination, StandardResultsSetPagination
 from api.serializers import (
     UserSerializer,
     AccountSerializer,
@@ -67,7 +67,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def expenses_by_category(self, request):
-        self.pagination_class = SmallResultsSetPagination
         category = request.query_params.get('category', None)
         if category:
             expenses = Expense.objects.filter(category=category).order_by("-date_created")
@@ -83,7 +82,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def most_recent_expenses(self, request):
-        self.pagination_class = SmallResultsSetPagination
         expenses = Expense.objects.all().order_by('-date_created')
         page = self.paginate_queryset(expenses)
 
@@ -128,25 +126,19 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, PaymentPermission]
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    pagination_class = StandardResultsSetPagination
+    pagination_class = PaymentResultsSetPagination
 
     @action(detail=False, methods=['get'])
     def upcoming_payments(self, request):
         today = timezone.now()
         filters = {'date__gt': today.date()}
-        same_month = request.query_params.get('same_month', None)
-        months = request.query_params.get('months', None)
-        if same_month is not None:
+        this_month = request.query_params.get('this_month', None)
+        if this_month is not None:
             filters['date__month'] = today.month
-        if months is not None:
-            try:
-                months = int(months)
-                limit = today.replace(month=today.month+months)
-                filters['date__lte'] = limit
-            except ValueError as e:
-                return Response({"error": f"Query must be valid integer: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+            filters['date__year'] = today.year
 
         payments = Payment.objects.filter(**filters)
+        print(payments)
         page = self.paginate_queryset(payments)
 
         if page:

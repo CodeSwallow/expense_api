@@ -239,33 +239,43 @@ class PaymentViewSetTest(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + response.data['access'])
 
     @freeze_time("2022-04-25")
-    def test_view_upcoming_payments(self):
+    def test_view_upcoming_payments_1(self):
         self.authenticate()
         self.addItems()
         url = reverse('api:payments-upcoming-payments')
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        print(response.data['count'])
-        for data in response.data['results']:
-            print(data)
         self.assertEqual(response.data['count'], 19)
+        self.assertEqual(response.data['total'], 10395)
+        url += '?this_month=1'
+        response = self.client.get(url, format='json')
+        print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 3)
+        self.assertEqual(response.data['total'], 770)
+        url += '?this_month=5d5d'
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 3)
+        self.assertEqual(response.data['total'], 770)
 
     @freeze_time("2022-06-25")
-    def test_view_upcoming_payments(self):
+    def test_view_upcoming_payments_2(self):
         self.authenticate()
         self.addItems()
         url = reverse('api:payments-upcoming-payments')
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        print(response.data['count'])
-        for data in response.data['results']:
-            print(data)
         self.assertEqual(response.data['count'], 11)
-
-    @freeze_time("2022-04-15")
-    def test_view_upcoming_payments(self):
-        self.authenticate()
-        self.addItems()
-        url = reverse('api:payments-upcoming-payments')
+        self.assertEqual(response.data['total'], 4050)
+        url += '?this_month=1'
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['total'], 200)
+        url += '?this_month=0'
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['total'], 200)
+
